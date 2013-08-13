@@ -8,7 +8,6 @@ int main(void)
 	struct ocl_environ environ;
 	unsigned int count = 4096;
 	size_t local, global;
-	cl_program program = NULL;
 	cl_kernel kernel = NULL;
 	cl_int err;
 	
@@ -37,70 +36,37 @@ int main(void)
 	}
 
 	err = ocl_default_environ(&environ);
-	if (err != CL_SUCCESS) {
-		ocl_perror("default_environ", err);
-		retval = -1;
-		goto cleanup;
-	}
+	ocl_check_error(&environ, err, "setup environ");
 	
-	ocl_compile_file("vectormult.cl", &environ, &program);
-	if (err != CL_SUCCESS) {
-		ocl_perror("compile_file", err);
-		retval = -1;
-		goto cleanup;
-	}
+	ocl_compile_file(&environ, "vectormult.cl");
+	ocl_check_error(&environ, err, "compile program");
 
 
-	kernel = clCreateKernel(program, "vector_mult", &err);
-	if (err != CL_SUCCESS) {
-		ocl_perror("compile_file", err);
-		retval = -1;
-		goto cleanup;
-	}
+	kernel = clCreateKernel(environ.program, "vector_mult", &err);
+	ocl_check_error(&environ, err, "create kernel");
 
 	err = ocl_alloc_output(&environ, &d_result, sizeof(float) * count);
-	if (err != CL_SUCCESS) {
-		ocl_perror("create result buffer", err);
-		retval = -1;
-		goto cleanup;
-	}
+	ocl_check_error(&environ, err, "alloc result");
+	
 	err = ocl_copy_input(&environ, &d_dataa, dataa, sizeof(float) * count);
-	if (err != CL_SUCCESS) {
-		ocl_perror("copy dataa", err);
-		retval = -1;
-		goto cleanup;
-	}
+	ocl_check_error(&environ, err, "copy dataa");
+	
 	err = ocl_copy_input(&environ, &d_datab, datab, sizeof(float) * count);
-	if (err != CL_SUCCESS) {
-		ocl_perror("copy datab", err);
-		retval = -1;
-		goto cleanup;
-	}
+	ocl_check_error(&environ, err, "copy datab");
+	
 	err = ocl_set_kernel_args(kernel, args);
-	if (err != CL_SUCCESS) {
-		ocl_perror("set kernel args", err);
-		retval = -1;
-		goto cleanup;
-	}
+	ocl_check_error(&environ, err, "set kernel args");
 	
 	local = 1024;
 	global = count;
 	err = clEnqueueNDRangeKernel(environ.commands, kernel, 1, NULL,
 				&global, &local, 0, NULL, NULL);
-	if (err != CL_SUCCESS) {
-		ocl_perror("enqueue kernel", err);
-		retval = -1;
-		goto cleanup;
-	}
+	ocl_check_error(&environ, err, "enqueue kernel");
 	clFinish(environ.commands);
 
 	err = clEnqueueReadBuffer(environ.commands, d_result, CL_TRUE, 0,
 				sizeof(float) * count, result, 0, NULL, NULL);
-	if (err != CL_SUCCESS) {
-		ocl_perror("read result", err);
-		retval = -1;
-		goto cleanup;
-	}
+	ocl_check_error(&environ, err, "copy result");
 	
 	correct = 0;
 	for (i = 0; i < count; i++) {
@@ -109,17 +75,10 @@ int main(void)
 	}
 	printf("%d correct, %d incorrect\n", correct, count - correct);
 
-cleanup:
-	if (d_result)
-		clReleaseMemObject(d_result);
-	if (d_dataa)
-		clReleaseMemObject(d_dataa);
-	if (d_datab)
-		clReleaseMemObject(d_datab);
-	if (kernel)
-		clReleaseKernel(kernel);
-	if (program)
-		clReleaseProgram(program);
+	clReleaseMemObject(d_result);
+	clReleaseMemObject(d_dataa);
+	clReleaseMemObject(d_datab);
+	clReleaseKernel(kernel);
 	ocl_destroy_environ(&environ);
 
 	return retval;

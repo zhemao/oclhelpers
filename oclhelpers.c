@@ -54,6 +54,8 @@ cl_int ocl_default_environ(ocl_environ *environ)
 
 void ocl_destroy_environ(ocl_environ *environ)
 {
+	if (environ->program)
+		clReleaseProgram(environ->program);
 	if (environ->commands)
 		clReleaseCommandQueue(environ->commands);
 	if (environ->context)
@@ -98,9 +100,7 @@ static char *slurp(const char *fname)
 	return fdata;
 }
 
-cl_int ocl_compile_file(const char *fname, 
-			ocl_environ *environ, 
-			cl_program *program)
+cl_int ocl_compile_file(ocl_environ *environ, const char *fname)
 {
 	size_t len = 0;
 	cl_int err;
@@ -109,7 +109,7 @@ cl_int ocl_compile_file(const char *fname,
 	if (source == NULL)
 		return CL_INVALID_VALUE;
 
-	*program = clCreateProgramWithSource(environ->context, 1, 
+	environ->program = clCreateProgramWithSource(environ->context, 1, 
 					(const char **) &source,
 					(const size_t *) &len, &err);
 	free(source);
@@ -117,13 +117,11 @@ cl_int ocl_compile_file(const char *fname,
 	if (err != CL_SUCCESS)
 		return err;
 	
-	err = clBuildProgram(*program, 1, &environ->device_id, 
+	err = clBuildProgram(environ->program, 1, &environ->device_id, 
 				NULL, NULL, NULL);
 	
-	if (err != CL_SUCCESS) {
-		ocl_print_build_error(*program, environ->device_id);
+	if (err != CL_SUCCESS)
 		return err;
-	}
 
 	return CL_SUCCESS;
 }
@@ -271,4 +269,17 @@ const char *ocl_strerror(cl_int err)
         default:
 		return "Unknown";
     }
+}
+
+void ocl_check_error(ocl_environ *environ, cl_int err, const char *prefix)
+{
+	if (err == CL_SUCCESS)
+		return;
+
+	ocl_perror(prefix, err);
+	if (err == CL_BUILD_PROGRAM_FAILURE)
+		ocl_print_build_error(environ->program, environ->device_id);
+
+	ocl_destroy_environ(environ);
+	exit(EXIT_FAILURE);
 }
