@@ -1,0 +1,9 @@
+OpenCL Helper Functions
+=======================
+
+This repo contains a set of helper functions for dealing with the OpenCL C API.
+To use it in your project, simply copy over the oclhelpers.c and oclhelpers.h
+files.
+
+Documentation on the helper functions can be found in comments in the 
+header file.
