@@ -1,4 +1,4 @@
-#include "oclHelpers.h"
+#include "oclhelpers.h"
 #include <stdio.h>
 #include <stdlib.h>
 
